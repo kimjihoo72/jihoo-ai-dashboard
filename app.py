@@ -6,11 +6,11 @@ import yfinance as yf
 import requests
 
 # 페이지 설정 (라이트 테마 매칭 및 와이드 레이아웃)
-st.set_page_config(page_title="지후의 AI 관제 V7.0", layout="wide")
-st.title("🛡️ AI 자율 관제 및 조기 경보 시스템 V7.0")
+st.set_page_config(page_title="지후의 AI 관제 V7.1", layout="wide")
+st.title("🛡️ AI 자율 관제 및 조기 경보 시스템 V7.1")
 st.markdown("### 📊 가속도 예측 알고리즘 + 섹터 확장 + 텔레그램 경보 통합본")
 
-# --- [기능 3] 텔레그램 알림 설정 사이드바 ---
+# --- 텔레그램 알림 설정 사이드바 ---
 st.sidebar.header("🚨 조기 경보 시스템 설정")
 telegram_token = st.sidebar.text_input("Telegram Bot Token", type="password", help="봇파더에게 받은 토큰을 입력하세요.")
 chat_id = st.sidebar.text_input("Telegram Chat ID", help="사용자의 텔레그램 ID를 입력하세요.")
@@ -26,19 +26,19 @@ def send_telegram_message(token, chat_id, text):
     except Exception as e:
         pass
 
-# --- [기능 2] 포트폴리오 확장 (해운주 HMM 전격 추가) ---
+# 포트폴리오 확장 (해운주 HMM 포함)
 stocks = {
     "🐻 SK하이닉스": "000660.KS", 
     "⚡ 삼성전자": "005930.KS", 
     "🟢 엔비디아": "NVDA", 
     "🟡 카카오": "035720.KS",
-    "🚢 HMM (해운주)": "011200.KS"  # 새 섹터 확장 종목
+    "🚢 HMM (해운주)": "011200.KS"
 }
 
 tabs = st.tabs(list(stocks.keys()))
 EXCHANGE_RATE = 1350
 
-def run_v70_integrated_engine(symbol, name):
+def run_v71_integrated_engine(symbol, name):
     try:
         # 데이터 자동 슬라이딩 (항상 최신 날짜 기준)
         df = yf.Ticker(symbol).history(period='1y')
@@ -48,8 +48,7 @@ def run_v70_integrated_engine(symbol, name):
     except Exception as e:
         return None
 
-    # --- [기능 1] 수학적 엔진 고도화: 미분 및 가속도(Jerk) 개념 도입 ---
-    # 1차 도함수(변화율) 및 2차 도함수(가속도) 계산
+    # --- 수학적 엔진 고도화: 미분 및 가속도 개념 도입 ---
     df['Velocity'] = df['Close'].diff()
     df['Acceleration'] = df['Velocity'].diff()
     
@@ -90,11 +89,10 @@ def run_v70_integrated_engine(symbol, name):
     x_future_str = future_dates.strftime('%m-%d').tolist()
     x_pred_timeline = [x_actual_str[-1]] + x_future_str
 
-    # --- [알림 조건 체크] 위험 및 돌파 감지 ---
+    # --- 알림 조건 체크 ---
     if alert_enabled and telegram_token and chat_id:
-        # 가속도가 비정상적으로 급락하거나 하단 방어선 예측이 너무 낮을 때 경고
         if f_target < last_price * 0.95:
-            send_telegram_message(telegram_token, chat_id, f"🚨 [AI 위험 경보] {name}의 5일 뒤 예측가가 현재가 대비 5% 이상 하락할 것으로 예측됩니다! 현재가: {int(last_price):,}원 / 예측가: {int(f_target):,}원")
+            send_telegram_message(telegram_token, chat_id, f"🚨 [AI 위험 경보] {name} 현재가 대비 5% 이상 하락 예측! 현재가: {int(last_price):,}원 / 예측가: {int(f_target):,}원")
         elif f_target > last_price * 1.05:
             send_telegram_message(telegram_token, chat_id, f"🚀 [AI 돌파 호재] {name} 강력 상승 랠리 포착! 현재가: {int(last_price):,}원 / 목표가: {int(f_target):,}원")
 
@@ -129,18 +127,20 @@ def style_explorer_chart(fig, x_combined_range):
 
 # --- 메인 렌더링 루프 ---
 for idx, (name, sym) in enumerate(stocks.items()):
-    res = run_v70_integrated_engine(sym, name)
+    res = run_v71_integrated_engine(sym, name)
     if not res: continue
     
     with tabs[idx]:
-        st.header(f"{name} 실시간 V7.0 자율 관제 상태")
+        st.header(f"{name} 실시간 V7.1 자율 관제 상태")
         
         c1, c2 = st.columns(2)
-        c2.metric("🎯 가속도 반영 5일 뒤 최종 예측가", f"{res['pred_price']:,} 원", f"{res['pred_price'] - res['price']:,} 원")
         c1.metric("현재 실제 주가", f"{res['price']:,} 원")
+        c2.metric("🎯 가속도 반영 5일 뒤 최종 예측가", f"{res['pred_price']:,} 원", f"{res['pred_price'] - res['price']:,} 원")
         st.divider()
 
         full_timeline = res['x_actual'] + res['future_dates_str']
+        
+        # 컬럼 중복 호출 버그 수정 및 삼등분 배치
         col_a, col_b, col_c = st.columns(3)
 
         with col_a:
@@ -159,11 +159,8 @@ for idx, (name, sym) in enumerate(stocks.items()):
             fig2 = style_explorer_chart(fig2, full_timeline)
             st.plotly_chart(fig2, use_container_width=True)
 
-        with col_b:
-            pass # 불필요 컬럼 가독성 정렬용 방치
-            
         with col_c:
-            st.subheader("3️⃣ 변동성 방어 (하단 보루)")
+            st.subheader("3️⃣ 변동성 방어")
             fig3 = go.Figure()
             fig3.add_trace(go.Scatter(x=res['x_actual'], y=res['actual_df']['Close'], mode='lines', line=dict(color="#0284C7", width=2.5)))
             fig3.add_trace(go.Scatter(x=res['x_pred_timeline'], y=res['m_trend'], mode='lines', line=dict(color="#DC2626", width=2, dash="dash")))
